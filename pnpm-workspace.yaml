@@ -1,0 +1,11 @@
+# pnpm 10+ requires each dependency lifecycle script to be explicitly reviewed.
+# Keep the DSH policy: native PTY and Win32 binding scripts are required; the
+# optional LLM packages' scripts are intentionally denied.
+onlyBuiltDependencies:
+  - '@deepseek-ai/dsh-subprocess-local'
+  - esbuild
+  - koffi
+  - node-pty
+ignoredBuiltDependencies:
+  - '@google/genai'
+  - protobufjs

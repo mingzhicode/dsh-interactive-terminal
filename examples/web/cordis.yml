@@ -1,0 +1,9 @@
+# Apply after the public Web profile: dsh --profile web --patch ./examples/web/cordis.yml
+- insert:
+    - id: dsh-interactive-terminal
+      name: dsh-interactive-terminal
+      config:
+        shellPath: /bin/bash
+        shellArgs: [--noprofile, --norc, -i]
+        rows: 40
+        cols: 160

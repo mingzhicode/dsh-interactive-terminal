@@ -1,0 +1,4 @@
+[
+  {"kind":"chunks","chunks":[{"type":"tool-call-delta","index":0,"id":"output-burst","name":"shared_terminal_send","argumentsDelta":"{\"text\":\"export BURST_STATE=kept; printf '\\nBURST_%s\\n' START; for ((i=0;i<1000;i++)); do printf x; done; printf '\\nBURST_%s\\n' END\",\"submit\":true}"},{"type":"finish","reason":{"kind":"tool-calls"}}]},
+  {"kind":"chunks","chunks":[{"type":"text-delta","index":0,"text":"OUTPUT_REPLAY_DONE"},{"type":"finish","reason":{"kind":"stop"}}]}
+]

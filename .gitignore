@@ -1,0 +1,25 @@
+# Dependencies and package-manager caches
+node_modules/
+.pnpm-store/
+
+# Local development and test artifacts
+.superpowers/
+.playwright-mcp/
+artifacts/
+coverage/
+test-results/
+playwright-report/
+.vite/
+*.tsbuildinfo
+*.log
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+docs/

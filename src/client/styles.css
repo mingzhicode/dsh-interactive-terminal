@@ -1,0 +1,158 @@
+.dsh-terminal {
+  box-sizing: border-box;
+  width: calc(100% - var(--dsh-composer-side-clearance, 16px) - var(--dsh-composer-side-clearance, 16px));
+  max-width: var(--dsh-composer-card-max-width, 780px);
+  min-width: 0;
+  flex: none;
+  align-self: center;
+  margin: 0 auto;
+  color: #1f2937;
+  background: #fff;
+  border: 1px solid #d8dee8;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.dsh-terminal-header,
+.dsh-terminal-status,
+.dsh-terminal-settings {
+  display: flex;
+  align-items: center;
+}
+
+.dsh-terminal-header {
+  min-height: 2.5rem;
+  padding: .2rem .35rem;
+  background: #f8fafc;
+}
+
+.dsh-terminal button {
+  font: inherit;
+  color: inherit;
+}
+
+.dsh-terminal-toggle,
+.dsh-terminal-settings-button {
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: .45rem;
+}
+
+.dsh-terminal-toggle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+  padding: .45rem .55rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.dsh-terminal-settings-button {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+}
+
+.dsh-terminal-toggle:hover,
+.dsh-terminal-settings-button:hover,
+.dsh-terminal-status button:hover:not(:disabled),
+.dsh-terminal-settings button:hover:not(:disabled) {
+  background: #eef2f7;
+}
+
+.dsh-terminal button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.dsh-terminal-chevron {
+  color: #64748b;
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+
+.dsh-terminal-toggle[aria-expanded="true"] .dsh-terminal-chevron {
+  transform: rotate(90deg);
+}
+
+.dsh-terminal-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  height: min(20rem, 42vh);
+  min-height: 12rem;
+  max-height: 60vh;
+  resize: vertical;
+  overflow: auto;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dsh-terminal [hidden] {
+  display: none !important;
+}
+
+.dsh-terminal-status,
+.dsh-terminal-settings {
+  flex: none;
+  flex-wrap: wrap;
+  gap: .4rem .65rem;
+  padding: .45rem .65rem;
+  color: #64748b;
+  font-size: .8rem;
+}
+
+.dsh-terminal-status {
+  border-bottom: 1px solid #eef2f7;
+}
+
+.dsh-terminal-status button,
+.dsh-terminal-settings button {
+  padding: .25rem .55rem;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: .4rem;
+}
+
+.dsh-terminal-status button {
+  margin-left: auto;
+}
+
+.dsh-terminal button:disabled {
+  cursor: default;
+  opacity: .45;
+}
+
+.dsh-terminal-settings {
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dsh-terminal [role="alertdialog"] {
+  flex: none;
+}
+
+.dsh-terminal-viewport {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 8rem;
+  padding: .6rem;
+  overflow: auto;
+  background: #fff;
+}
+
+.dsh-terminal-viewport .xterm {
+  width: max-content;
+  min-width: 100%;
+}
+
+.dsh-terminal p {
+  flex: none;
+  margin: .5rem .65rem;
+}

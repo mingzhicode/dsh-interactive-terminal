@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2024", "DOM"],
+    "allowJs": true,
+    "checkJs": true
+  },
+  "include": ["../npm-pack.spec.ts", "../package-consumer.mjs"],
+  "exclude": []
+}

@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noUncheckedSideEffectImports": true },
+  "include": ["host.ts"],
+  "exclude": []
+}

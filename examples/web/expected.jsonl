@@ -1,0 +1,9 @@
+{"type":"tool/call","name":"shared_terminal_send","arguments":{"text":"printf 'MODEL_%s\n' FIRST; sleep 3; printf 'MODEL_%s\n' LAST","submit":true}}
+{"type":"tool/result","name":"shared_terminal_send","generation":1,"rows":40,"cols":160,"status":{"kind":"running"},"queueStatus":"ready","waitReason":"prompt","output":"printf 'MODEL_%s\n> ' FIRST; sleep 3; printf 'MODEL_%s\n> ' LAST\nMODEL_FIRST\nMODEL_LAST\ndsh$ "}
+{"type":"tool/call","name":"shared_terminal_read","arguments":{"offset":0,"count":10}}
+{"type":"tool/result","name":"shared_terminal_read","generation":1,"rows":40,"cols":160,"status":{"kind":"running"},"queueStatus":"ready"}
+{"type":"tool/call","name":"shared_terminal_signal","arguments":{"signal":"SIGINT"}}
+{"type":"tool/result","name":"shared_terminal_signal","generation":1,"rows":40,"cols":160,"status":{"kind":"running"},"queueStatus":"ready","waitReason":"prompt"}
+{"type":"tool/call","name":"shared_terminal_reset","arguments":{}}
+{"type":"tool/result","name":"shared_terminal_reset","generation":2,"rows":40,"cols":160,"status":{"kind":"running"},"queueStatus":"ready","waitReason":"prompt"}
+{"type":"assistant/message","content":[{"type":"text","text":"TERMINAL_REPLAY_DONE"}]}

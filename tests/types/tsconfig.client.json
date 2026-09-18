@@ -1,0 +1,6 @@
+{
+  "extends": "../../tsconfig.client.json",
+  "compilerOptions": { "noUncheckedSideEffectImports": true },
+  "include": ["client.ts"],
+  "exclude": []
+}

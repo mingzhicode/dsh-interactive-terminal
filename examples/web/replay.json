@@ -1,0 +1,7 @@
+[
+  {"kind":"chunks","chunks":[{"type":"tool-call-delta","index":0,"id":"terminal-send","name":"shared_terminal_send","argumentsDelta":"{\"text\":\"printf 'MODEL_%s\\n' FIRST; sleep 3; printf 'MODEL_%s\\n' LAST\",\"submit\":true}"},{"type":"finish","reason":{"kind":"tool-calls"}}]},
+  {"kind":"chunks","chunks":[{"type":"tool-call-delta","index":0,"id":"terminal-read","name":"shared_terminal_read","argumentsDelta":"{\"offset\":0,\"count\":10}"},{"type":"finish","reason":{"kind":"tool-calls"}}]},
+  {"kind":"chunks","chunks":[{"type":"tool-call-delta","index":0,"id":"terminal-signal","name":"shared_terminal_signal","argumentsDelta":"{\"signal\":\"SIGINT\"}"},{"type":"finish","reason":{"kind":"tool-calls"}}]},
+  {"kind":"chunks","chunks":[{"type":"tool-call-delta","index":0,"id":"terminal-reset","name":"shared_terminal_reset","argumentsDelta":"{}"},{"type":"finish","reason":{"kind":"tool-calls"}}]},
+  {"kind":"chunks","chunks":[{"type":"text-delta","index":0,"text":"TERMINAL_REPLAY_DONE"},{"type":"finish","reason":{"kind":"stop"}}]}
+]

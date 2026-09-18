@@ -1,0 +1,4 @@
+- insert:
+    - id: dsh-interactive-terminal
+      name: dsh-interactive-terminal
+      config: {}
