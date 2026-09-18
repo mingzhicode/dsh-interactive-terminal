@@ -1,26 +1,62 @@
 # dsh-interactive-terminal
 
-`dsh-interactive-terminal` adds one persistent Bash terminal to each live DeepSeek Harness Agent. The light, collapsible terminal dock sits above the conversation composer, and the model and browser share the same process through a server-authoritative FIFO queue. Version 0.1 targets the public `@deepseek-ai/dsh` `0.1.0-rc.8` interfaces on macOS and Linux.
+English | [中文](README.zh.md)
 
-## Install a local release candidate
+A persistent Bash terminal shared by the model and user in DeepSeek Harness Web. Each live Agent owns one PTY, rendered with xterm.js in a collapsible panel above the composer. Input operations follow a strict FIFO queue; explicit handoff lets a user continue a model-started program.
 
-Build and inspect the package before installing it. The package runs no build or `postinstall` step after installation.
+## Install and start
+
+Requirements: macOS or Linux, Bash, and Node.js `^22.19 || >=24`. This plugin is tested against DSH `0.1.0-rc.8`; other DSH versions are unverified. DSH's plugin command requires pnpm on `PATH`.
+
+### Install from npm
+
+Install the tested CLI and package manager. Skip this step if these versions are already available:
 
 ```sh
-pnpm run build
-npm pack --dry-run
-npm pack
-pnpm exec dsh plugin --profile web add ./dsh-interactive-terminal-0.1.0.tgz
-pnpm exec dsh --profile web --no-open
+npm install -g @deepseek-ai/dsh@0.1.0-rc.8 pnpm@10.18.3
 ```
 
-The plugin command adds the tarball to the normal Web profile under `DSH_HOME` and activates its declared bundle layer. Set `DSH_HOME` to a new temporary directory first when an isolated verification profile is required. Do not use the bare registry name until the package has been published. After manual publication, the equivalent registry command is `dsh plugin --profile web add dsh-interactive-terminal`.
+Once plugin version `0.1.0` is published to npm, install it into the Web profile and start DSH:
 
-Open the Web URL, create or select an Agent, and expand **Terminal** above the composer. The first tool call or dock expansion lazily creates that Agent's shell. Use **Terminal settings** for reconnect, local clear, text size, and the confirmed terminal reset.
+```sh
+dsh plugin --profile web add dsh-interactive-terminal@0.1.0
+dsh --profile web --no-open
+```
+
+The registry command requires a published package. If it returns `404`, use a supplied `.tgz` as described below. Installing the plugin globally with `npm install -g` alone does not activate it in DSH.
+
+`dsh plugin` downloads the package into the Web profile and activates its bundle automatically; no additional `--patch` is needed. Installation and startup must use the same `DSH_HOME` (default: `~/.dsh`). Restart an already running DSH after installation.
+
+Open the URL printed by DSH, configure the model if needed, select a workspace and conversation, then expand **Terminal**. The first expansion or tool call creates the shell. Type `echo hello` at the idle prompt to check input and output. Subsequent launches only need:
+
+```sh
+dsh --profile web --no-open
+```
+
+### Install a downloaded npm tarball
+
+If you have `dsh-interactive-terminal-0.1.0.tgz`, install it without cloning or building the source:
+
+```sh
+dsh plugin --profile web add ./dsh-interactive-terminal-0.1.0.tgz
+dsh --profile web --no-open
+```
+
+The tarball includes the host and browser builds and has no build-on-install or `postinstall` step. Its dependencies may still require registry access. To download a published tarball separately, use `npm pack dsh-interactive-terminal@0.1.0`.
+
+## Use the terminal
+
+- At an idle shell, type directly in the terminal. The first key requests input ownership; later keys wait for the grant.
+- When a model-started program asks for input, click **Take over input**, wait for the grant, then answer. Handoff keeps the same process, sends no signal, and clears that operation's model deadline. Later operations remain queued until the interaction ends. Take over before `operationTimeoutMs` expires; stale or recovering targets are rejected.
+- Typing during model ownership does not queue an answer for later shell execution. Enter submits input but does not release ownership; a controlled shell prompt or exit does.
+- **Interrupt input** sends `SIGINT` to the re-inspected foreground group. It interrupts the program, not hands off control, and retains ownership until prompt recovery.
+- **Terminal settings** provides reconnect, local clear, text size and confirmed reset. Collapse, clear and reconnect keep the shell alive. Resizing changes only the visible panel, not PTY geometry.
+
+One browser controls an Agent's terminal; additional views and all mobile views are read-only. Independent model sends, human input, signals and resets run in acceptance order. Handoff transfers the active slot in place; reads bypass the queue.
 
 ## Configuration
 
-Override the installed row in the profile's `cordis.patch.yml`:
+Add an override to `~/.dsh/profiles/web/cordis.patch.yml`, or `$DSH_HOME/profiles/web/cordis.patch.yml` when using a custom home:
 
 ```yaml
 - id: dsh-interactive-terminal
@@ -29,94 +65,76 @@ Override the installed row in the profile's `cordis.patch.yml`:
     shellArgs: [--noprofile, --norc, -i]
     rows: 40
     cols: 160
-    scrollbackLines: 10000
-    scrollbackMaxBytes: 4194304
-    maxToolOutputBytes: 262144
-    maxInputBytes: 65536
-    maxQueuedOperations: 128
-    maxSessions: 32
-    pollIntervalMs: 50
-    operationTimeoutMs: 30000
-    interruptTimeoutMs: 5000
-    disconnectGraceMs: 15000
-    disposeGraceMs: 3000
 ```
+
+A patch replaces the row's entire `config`; include all custom values you want to retain. Omitted fields use the defaults below. Resetting the terminal creates a new shell and loses its in-memory state.
 
 | Field | Default | Meaning |
 | --- | ---: | --- |
-| `shellPath` | `/bin/bash` | Bash executable. Version 0 rejects other shells. |
-| `shellArgs` | `--noprofile --norc -i` | Arguments for the interactive shell. Empty arguments are rejected. |
-| `rows` | `40` | Fixed backend rows for every PTY generation. |
-| `cols` | `160` | Fixed backend columns for every PTY generation. |
-| `scrollbackLines` | `10000` | Maximum retained history lines, excluding the fixed viewport. |
-| `scrollbackMaxBytes` | `4194304` | Maximum UTF-8 bytes in one serialized ANSI history replay, excluding the viewport. |
-| `maxToolOutputBytes` | `262144` | Maximum UTF-8 bytes in the complete serialized JSON of a successful tool result. The minimum is `1024`, and the value cannot exceed `scrollbackMaxBytes`. |
-| `maxInputBytes` | `65536` | Maximum bytes in one model send or one accepted human input lease. |
-| `maxQueuedOperations` | `128` | Maximum accepted mutations for one Agent, including the active operation. |
-| `maxSessions` | `32` | Maximum live Agent terminal generations. |
-| `pollIntervalMs` | `50` | Delay before the next foreground-process check, measured after the previous check completes. |
-| `operationTimeoutMs` | `30000` | Model mutation deadline before interrupt recovery begins. |
-| `interruptTimeoutMs` | `5000` | Time allowed for a controlled prompt after recovery sends `SIGINT`. |
-| `disconnectGraceMs` | `15000` | Controller disconnect grace before queued recovery ends human ownership. |
+| `shellPath` | `/bin/bash` | Bash executable; other shells are rejected. |
+| `shellArgs` | `--noprofile --norc -i` | Interactive-shell arguments; no empty arguments. |
+| `rows` | `40` | Fixed PTY rows. |
+| `cols` | `160` | Fixed PTY columns. |
+| `scrollbackLines` | `10000` | Retained history lines, excluding the viewport. |
+| `scrollbackMaxBytes` | `4194304` | UTF-8 limit for serialized ANSI history, excluding the viewport. |
+| `maxToolOutputBytes` | `262144` | Complete tool-result JSON limit; at least `1024`, no greater than `scrollbackMaxBytes`. |
+| `maxInputBytes` | `65536` | Input bytes per model send or accepted human input lease. |
+| `maxQueuedOperations` | `128` | Accepted mutations per Agent, including the active operation. |
+| `maxSessions` | `32` | Maximum live Agent terminals. |
+| `pollIntervalMs` | `50` | Delay after each foreground check before the next check. |
+| `operationTimeoutMs` | `30000` | Model mutation deadline before interrupt recovery. |
+| `interruptTimeoutMs` | `5000` | Controlled-prompt recovery deadline after `SIGINT`. |
+| `disconnectGraceMs` | `15000` | Controller disconnect grace before human-input recovery. |
 | `disposeGraceMs` | `3000` | Process-tree termination grace during reset or teardown. |
-
-The dock uses the composer's normal page layout and scrolls wide terminal content locally. Browser resizing, vertical dock resizing, and text-size controls change only the visible viewport. They never change `rows`, `cols`, `stty`, or the PTY geometry. Collapsing the dock hides the existing terminal without ending its shell or releasing input ownership.
 
 ## Model tools
 
-All four tools address the executing Agent; callers cannot select a session, PTY, working directory, shell, environment, sandbox, or another Agent.
+All four tools use the executing Agent's terminal. Callers cannot select another Agent, PTY, working directory, shell, environment or sandbox.
 
-- `shared_terminal_send({ text, submit? })` writes text and, by default, Enter. It returns on a controlled prompt, observed `stdin_read`, explicit human handoff, shell exit, timeout recovery, or cancellation recovery. `waitReason: human_handoff` means the human owns the still-running interaction, not that the program completed; wait for the user instead of submitting another answer.
-- `shared_terminal_read({ offset?, count? })` reads without joining the mutation queue. `offset` skips retained history lines from the newest end and `count` selects the preceding page. `lineBegin` is inclusive and `lineEnd` is exclusive in the retained history; `totalLines` reports its current length. The result also contains the current viewport and zero-based cursor coordinates.
-- `shared_terminal_signal({ signal })` queues `SIGINT`, `SIGTERM`, `SIGKILL`, `SIGTSTP`, or `SIGHUP` for the foreground process group. `SIGKILL` against the top-level shell is refused.
-- `shared_terminal_reset({})` queues destruction of the current generation and creates a fresh shell. Reset is the only operation that replaces a naturally exited shell.
+| Tool | Behavior |
+| --- | --- |
+| `shared_terminal_send({ text, submit? })` | Write text; `submit` defaults to `true` (append Enter). Return on prompt, observed `stdin_read`, handoff, exit or timeout/cancellation recovery. |
+| `shared_terminal_read({ offset?, count? })` | Read without acquiring input ownership. `offset` skips history lines from the newest end; `count` selects preceding lines. |
+| `shared_terminal_signal({ signal })` | Queue `SIGINT`, `SIGTERM`, `SIGKILL`, `SIGTSTP` or `SIGHUP` for the foreground group. Top-level shell `SIGKILL` is refused. |
+| `shared_terminal_reset({})` | Queue teardown and a fresh shell; also replaces a naturally exited shell. |
 
-Successful results report the generation, output sequence, fixed geometry, viewport, cursor, process status, queue status, holder, pending count, truncation state, and operation-specific fields. Mutation results also report queue time and `waitReason`; send and signal results include output captured for that operation. The complete serialized JSON result is bounded by `maxToolOutputBytes`, not only its output field. Text keeps the newest valid UTF-8 suffix when truncation is necessary, and `truncated` is set. The tool renderer uses that same bounded operation output.
+Results include generation, output sequence, geometry, viewport, cursor, process/queue status, holder, pending count and truncation state. Mutations add queue time and `waitReason`; send/signal add captured operation output. Reads add `text`, `lineBegin` (inclusive), `lineEnd` (exclusive) and `totalLines`. Cursor coordinates are zero-based. Tool rendering uses the same captured output; the complete JSON is byte-bounded and truncation retains the newest valid UTF-8 suffix.
 
-## Queue, ownership, and recovery
+`waitReason: human_handoff` means the user owns an ongoing interaction, not that the command completed. The model must wait for the user rather than submit another answer. A timeout likewise does not prove process exit.
 
-Each exact live Agent owns at most one lazily created PTY, and two Agents never share terminal state. Independent model sends, human input, signals and resets enter one strict acceptance-order queue. Reads do not acquire an input slot. Human handoff transfers the active operation in place; it does not start another operation ahead of queued work.
+## Recovery and limits
 
-When a model-started program asks for input, click **Take over input** and wait for the human grant before typing in the same terminal. The handoff sends no signal, clears that operation's model deadline, and keeps later operations queued until the human interaction ends. Typing during model ownership does not buffer an answer for later Shell execution. Handoff targets an exact operation and generation; stale or recovering targets are rejected rather than applied to a later command. Click before `operationTimeoutMs` expires (30 seconds by default); handoff cannot revive an already interrupted program.
+Reconnect restores a bounded snapshot before live output and validates connection, generation and sequence. The browser uses xterm's ordered queue; the host batches buffered output and publishes it only after parsing. A rejected browser write requires explicit **Reconnect**. This is not end-to-end backpressure for sustained high-volume output. Disconnected controllers remain subject to `disconnectGraceMs`.
 
-At an available Shell, the browser's first key atomically requests a human lease and carries that key. Later keys remain buffered until the Host grants the lease. Enter submits input but does not itself release ownership; a controlled Shell prompt or exit ends the interaction. **Interrupt input** sends `SIGINT` to the re-inspected foreground group and retains the queue slot until prompt recovery completes. It interrupts the program; it is not a handoff button. A timeout does not prove that the command exited. Failed recovery changes the queue to `blocked`; the earliest queued reset is the only mutation allowed to recover it.
+- A natural exit retains the final screen and status until reset.
+- `queue is blocked until reset`: interrupt recovery missed its deadline. Only the earliest queued reset can recover; later mutations are rejected.
+- `terminal queue is full`: wait for accepted operations rather than retrying in parallel.
+- `terminal capacity reached`: dispose an Agent or finish pending cleanup before increasing `maxSessions`.
+- macOS rc.8 does not report `stdin_read`. Use explicit takeover for interactive prompts before the model deadline. Linux can yield on an observed stdin wait, but Linux native validation and multi-round REPL validation remain outstanding.
+- `TERM=dumb`, fixed geometry and `PAGER=cat` are intentional. Full-screen or query-dependent TUIs are unsupported; renderer-generated query replies are suppressed and the host has no query responder.
 
-A natural shell exit keeps the final screen and exit status. Collapsing the panel, clearing its local view, or reconnecting does not replace the shell. Reconnect begins with a bounded snapshot and watermark before live output, so stale browser state is replaced without an unbounded replay.
+## Security
 
-Browser output uses xterm's native ordered write queue without waiting between chunks or updating the React toolbar per chunk. Each reconnect snapshot creates a fresh browser renderer, retaining the text size and isolating old queued output; it does not recreate the PTY. Connection, generation, and sequence checks remain active. xterm accounts for pending data and enforces its native buffer limit; a rejected write stops the connection with a visible notice and requires explicit **Reconnect**. This is not end-to-end backpressure for sustained high-volume output. A disconnected human controller remains subject to `disconnectGraceMs` recovery.
+The host owns terminal identity, workspace and sandbox policy. Required confinement must be available or startup fails; it never falls back to unconfined execution. The shell does not inherit Harness credentials.
 
-The Host combines bytes already buffered by the PTY stream, capping each aggregate at the stream's readable high-water mark without delaying the first arriving chunk. It publishes each batch only after screen and operation-capture ingestion. Foreground inspection waits `pollIntervalMs` after each completed check, leaving an interval for output processing even when a provider uses synchronous process scans. Signal delivery still performs its own foreground inspection.
+Browser attachment uses hashed, Agent-bound, single-use tokens valid for 10 seconds. The WebSocket accepts no caller-selected Agent, session or PTY identifier. Raw PTY output and human keystrokes are not session events; model tool arguments and bounded results are logged normally.
 
-One browser is controller for an Agent. Additional browser views are read-only, and all mobile views are read-only in version 0.1.
+Reset, Agent disposal and plugin unload/HMR revoke connections and terminate the owned process tree. Custom subprocess providers must re-inspect the foreground at signal delivery and refuse top-level shell `SIGKILL`, as the official rc.8 provider does.
 
-## Security and logging
+## Development and packaging
 
-The Host resolves the selected session through the public Agent registry and owns the working directory, sandbox policy, environment, and PTY identity. Attach tokens are cryptographically random, hashed while retained, bound to one Agent, valid for 10 seconds, and accepted once through the WebSocket subprotocol on the fixed upgrade path. The WebSocket accepts no Agent, session, or PTY identifier.
+From a source checkout:
 
-The shell receives explicit terminal variables and does not inherit Harness credentials. Raw PTY bytes and human keystrokes are not session events. Model tool arguments and bounded results remain ordinary tool log entries, so all model-visible terminal content is reconstructable without logging the human terminal stream.
+```sh
+pnpm install
+pnpm run build
+npm pack --dry-run
+npm pack
+```
 
-Plugin unload, HMR, Agent disposal, and reset revoke tokens, close sockets, settle queued work, and terminate the owned process tree. Custom subprocess providers must provide the same send-time foreground reinspection as the official rc.8 provider and must refuse `SIGKILL` against the top-level terminal shell.
+Install the resulting `.tgz` using the commands above. For isolated verification, set `DSH_HOME` to a fresh directory before both installation and startup. The keyless Web tests use a replay model with a real Agent loop and native PTY, not a live model.
 
-## Limits and troubleshooting
-
-- Version 0.1 supports local Bash on macOS and Linux only. Windows and non-Bash `shellPath` values fail during activation.
-- macOS rc.8 supports ordinary model commands and explicit human takeover of model-started interactions. The official macOS process inspector does not report `stdin_read`; without takeover before the deadline, a waiting model operation enters timeout recovery. Linux can release model input ownership on observed `stdin_read`, allowing the next input to continue the foreground program. Automatic model-driven `stdin_read` and multi-round REPL remain Linux validation targets; Linux native validation has not been run for this release candidate.
-- The browser suppresses renderer-generated terminal query replies, and the Host has no device-query responder. The shell uses `TERM=dumb`, fixed geometry, and `PAGER=cat`; full-screen or query-dependent TUIs are not supported.
-- A confined sandbox mode needs a usable same-world sandbox provider for the Agent. Missing or unusable confinement fails before the shell spawns; it does not fall back to an unconfined process.
-- `terminal capacity reached` means `maxSessions` live or cleanup-retained generations are already allocated. Dispose an Agent or reset/finish cleanup before increasing the limit.
-- `terminal queue is full` means the Agent reached `maxQueuedOperations`. Wait for accepted work rather than retrying mutations in parallel.
-- `queue is blocked until reset` means interrupt recovery did not reach the controlled prompt within `interruptTimeoutMs`. Use the earliest queued reset; later mutations remain rejected.
-
-The keyless Web acceptance uses a scripted replay provider with a real Agent loop and native PTY. It is not a live-model demonstration. Local live-model GUI evidence exists for macOS ordinary commands and human interaction; the Linux targets above remain unexecuted.
-
-## Manual publication checklist
-
-Publication is never part of build or verification.
-
-1. Run the release checks and inspect `npm pack --dry-run`; confirm only `lib/`, `dist/client.js`, the Cordis patch, package metadata, the bilingual READMEs, changelog, and license are present.
-2. Authenticate explicitly with npm and verify the target account and registry without copying credentials into this repository or its logs.
-3. Obtain explicit user authorization for this exact tarball and version.
-4. Only then run `npm publish` and verify the registry package before using the bare-name installation command.
+Build and verification do not publish. Before manual publication, run the release checks, inspect package contents and confirm the npm account, registry, version and explicit publishing authorization. Never put credentials in the repository or logs.
 
 ## License
 
