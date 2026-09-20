@@ -6,11 +6,12 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { ConnectionRpcHandler } from '@deepseek-ai/dsh-client-connection'
 import type {} from '@deepseek-ai/dsh-host-webserver'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { SessionId } from '@deepseek-ai/dsh-session'
 import { WebSocket, WebSocketServer, type RawData } from 'ws'
 import type { Config } from './config.ts'
 import { assertNever, type ClientFrame, type ServerFrame, type TakeoverId } from './protocol.ts'
-import type { HumanLease, TerminalAttachment } from './service.ts'
+import type { HumanLease, TerminalAttachment, TerminalOperationResult, TerminalReadResult } from './service.ts'
 import type { TerminalEvent } from './terminal.ts'
 
 /** Trusted RPC channel; its only endpoint is token. */
@@ -36,6 +37,13 @@ interface HumanOperation {
   position?: number
   done: Promise<void>
 }
+type HandoffSettlement =
+  | { kind: 'completed'; result: TerminalOperationResult }
+  | { kind: 'failed'; state: TerminalReadResult }
+interface HandoffObserver {
+  failedState(): TerminalReadResult
+  settled(outcome: HandoffSettlement): void
+}
 interface Controller {
   agent: Agent
   proof: string
@@ -60,6 +68,7 @@ export class TerminalTransport {
   static inject = ['connection', 'webServer', 'agents', 'interactiveTerminals']
   private readonly tokens = new Map<string, AttachToken>()
   private readonly epochs = new WeakMap<Agent, number>()
+  private readonly disposedOwners = new WeakSet<Agent>()
   private readonly controllers = new Map<Agent, Controller>()
   private readonly connections = new Set<Connection>()
   private readonly pending = new Set<Promise<void>>()
@@ -290,25 +299,64 @@ export class TerminalTransport {
   }
 
   private takeover(connection: Connection, controller: Controller, target: TakeoverId): void {
-    this.operate(controller, operation => connection.attachment!.takeover(target, operation.abort.signal))
+    this.operate(
+      controller,
+      operation => connection.attachment!.takeover(target, operation.abort.signal),
+      {
+        failedState: () => connection.attachment!.read(),
+        settled: outcome => this.notifyHandoff(controller.agent, outcome),
+      },
+    )
   }
 
-  private operate(controller: Controller, acquire: (operation: HumanOperation) => Promise<HumanLease>): void {
+  private operate(controller: Controller, acquire: (operation: HumanOperation) => Promise<HumanLease>, observer?: HandoffObserver): void {
     const operation: HumanOperation = { abort: new AbortController(), done: Promise.resolve() }
     controller.operation = operation
     operation.done = (async () => {
+      let lease: HumanLease | undefined
       try {
-        const lease = await acquire(operation)
+        lease = await acquire(operation)
         operation.lease = lease
         if (controller.socket) this.send(controller.socket, { type: 'human.granted' })
-        await lease.done
-      } catch { if (!operation.abort.signal.aborted && controller.socket) this.error(controller.socket) }
+        const result = await lease.done
+        observer?.settled({ kind: 'completed', result })
+      } catch {
+        if (lease && observer) observer.settled({ kind: 'failed', state: observer.failedState() })
+        if (!operation.abort.signal.aborted && controller.socket) this.error(controller.socket)
+      }
       finally {
         if (controller.operation === operation) controller.operation = undefined
         if (controller.socket) { this.send(controller.socket, { type: 'human.revoked' }); this.status(controller.socket) }
       }
     })()
     this.track(operation.done)
+  }
+
+  private notifyHandoff(agent: Agent, outcome: HandoffSettlement): void {
+    if (this.stopped || this.disposedOwners.has(agent) || this.ctx.agents.get(agent.id) !== agent || this.ctx.interactiveTerminals.isDisposed(agent)) return
+    const state = outcome.kind === 'completed' ? outcome.result : outcome.state
+    const reason = outcome.kind === 'completed' ? ` waitReason=${outcome.result.waitReason}` : ''
+    const label = outcome.kind === 'completed' ? 'finished' : 'failed'
+    const message = createUserMessage({
+      content: [{
+        type: 'text',
+        text: `Shared terminal human handoff ${label}.\n`
+          + `generation=${state.generation} sequence=${state.snapshot.sequence}${reason} terminalStatus=${JSON.stringify(state.status)}\n`
+          + 'Before sending terminal input or signals, call shared_terminal_read and inspect its newest retained history page plus viewport. The read is cumulative for this terminal generation, not isolated to this handoff.',
+      }],
+      source: {
+        kind: 'plugin',
+        plugin: 'dsh-interactive-terminal',
+        form: 'notice',
+        summary: `Shared terminal human handoff ${label}${outcome.kind === 'completed' ? ` (${outcome.result.waitReason})` : ''}`,
+      },
+    })
+    try {
+      if (agent.status === 'idle') agent.followup(message)
+      else agent.inject(message)
+    } catch (error) {
+      this.ctx.logger('interactive-terminals').warn(error)
+    }
   }
 
   private cancel(controller: Controller): void {
@@ -334,6 +382,7 @@ export class TerminalTransport {
   }
 
   private async revoke(agent: Agent, code: 4001 | 4002): Promise<void> {
+    if (code === 4002) this.disposedOwners.add(agent)
     this.epochs.set(agent, (this.epochs.get(agent) ?? 0) + 1)
     for (const [key, token] of this.tokens) if (token.agent === agent) this.tokens.delete(key)
     this.schedulePrune()
