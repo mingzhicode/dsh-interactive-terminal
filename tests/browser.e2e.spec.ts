@@ -132,10 +132,12 @@ it('hands a model-started interactive program to the browser without interruptin
   try {
     await writeFile(join(app.workspace, 'handoff-child.sh'), [
       'trap "touch .handoff-interrupted; exit 130" INT',
-      'printf "Authenticate test program? (Y/n) "',
+      'printf "Download package? (Y/n) "',
       'while [ ! -f .handoff-ready ]; do sleep 0.05; done',
       'IFS= read -r answer',
-      'printf "ANSWER_%s\\n" "$answer"',
+      'printf "Install location: "',
+      'IFS= read -r location',
+      'printf "ANSWER_%s\\nLOCATION_%s\\n" "$answer" "$location"',
       '',
     ].join('\n'))
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } })
@@ -153,11 +155,12 @@ it('hands a model-started interactive program to the browser without interruptin
     await expect.poll(() => panel.getByRole('status').innerText()).toContain('connected ready')
     await prompt(page, 'Start the local interactive handoff acceptance program.')
     const output = () => frames.map(frame => frame.output ?? '').join('')
-    await expect.poll(output, { timeout: 15000 }).toContain('\r\nAuthenticate test program? (Y/n)')
+    await expect.poll(output, { timeout: 15000 }).toContain('\r\nDownload package? (Y/n)')
     const takeover = panel.getByRole('button', { name: 'Take over input', exact: true })
     await takeover.click({ timeout: 5000 })
     await expect.poll(() => frames.some(frame => frame.type === 'human.granted')).toBe(true)
-    await expect.poll(() => frames.filter(frame => frame.type === 'terminal.status').map(frame => ({ holder: frame.holder, pendingCount: frame.pendingCount })), { timeout: 15000 }).toContainEqual({ holder: 'human', pendingCount: 1 })
+    await expect.poll(() => frames.filter(frame => frame.type === 'terminal.status').map(frame => ({ holder: frame.holder, pendingCount: frame.pendingCount })), { timeout: 15000 }).toContainEqual({ holder: 'human', pendingCount: 0 })
+    await page.getByText('WAITING_FOR_HANDOFF_COMPLETION', { exact: true }).waitFor({ timeout: 15000 })
     expect(output()).not.toContain('FOLLOWER_DONE')
     await page.screenshot({ path: 'artifacts/terminal-handoff-granted.png' })
     await writeFile(join(app.workspace, '.handoff-ready'), '')
@@ -165,8 +168,14 @@ it('hands a model-started interactive program to the browser without interruptin
     expect(await input.evaluate(element => element === document.activeElement)).toBe(true)
     await page.keyboard.type('Y')
     await page.keyboard.press('Enter')
+    await expect.poll(output).toContain('Install location:')
+    expect(await page.getByText('HANDOFF_REPLAY_DONE', { exact: true }).count()).toBe(0)
+    expect(await page.getByText(/Shared terminal human handoff finished/).count()).toBe(0)
+    await page.keyboard.type('/tmp/npm-cache')
+    await page.keyboard.press('Enter')
     await page.getByText('HANDOFF_REPLAY_DONE', { exact: true }).waitFor({ timeout: 15000 })
     expect(output()).toContain('ANSWER_Y')
+    expect(output()).toContain('LOCATION_/tmp/npm-cache')
     expect(output().indexOf('FOLLOWER_DONE')).toBeGreaterThan(output().indexOf('ANSWER_Y'))
     expect(output()).not.toContain('command not found')
     await expect(access(join(app.workspace, '.handoff-interrupted'))).rejects.toMatchObject({ code: 'ENOENT' })
@@ -176,21 +185,39 @@ it('hands a model-started interactive program to the browser without interruptin
     const files = await readdir(join(app.home, 'sessions'), { recursive: true })
     const path = files.find(file => file.endsWith('.jsonl'))!
     const events = parseSessionLog(await readFile(join(app.home, 'sessions', path), 'utf8'))
-    const outcomes = events.filter(event => event.type === 'tool/result').map(event => {
+    const notices = events.filter(event => event.type === 'user/message'
+      && event.data.source.kind === 'plugin'
+      && event.data.source.plugin === 'dsh-interactive-terminal')
+    expect(notices).toHaveLength(1)
+    const notice = notices[0]!
+    if (notice.type !== 'user/message') throw new Error('Expected terminal handoff notice')
+    const noticeText = notice.data.content.map(block => block.type === 'text' ? block.text : '').join('')
+    expect(noticeText).toContain('shared_terminal_read')
+    expect(noticeText).toContain('waitReason=prompt')
+    expect(noticeText).not.toContain('ANSWER_Y')
+    expect(noticeText).not.toContain('/tmp/npm-cache')
+
+    const calls = events.filter(event => event.type === 'tool/call')
+    const names = new Map(calls.map(event => [event.data.callId, event.data.name]))
+    const results = events.filter(event => event.type === 'tool/result').map(event => {
       const block = event.data.message.content[0]!
-      expect(block.isError).toBe(false)
-      const content = block.content[0]!
-      if (content.type !== 'text') throw new Error('Expected JSON terminal result')
-      const result = JSON.parse(content.text)
-      return { toolCallId: block.toolCallId, waitReason: result.waitReason, generation: result.generation, output: result.output }
+      if (block.isError || block.content[0]?.type !== 'text') throw new Error('Expected successful JSON terminal result')
+      return { name: names.get(block.toolCallId), ...JSON.parse(block.content[0].text) }
     })
-    expect(outcomes.map(({ output: _output, ...outcome }) => outcome)).toEqual([
-      { toolCallId: 'handoff-start', waitReason: 'human_handoff', generation: 1 },
-      { toolCallId: 'handoff-follower', waitReason: 'prompt', generation: 1 },
+    expect(calls.map(call => call.data.name)).toEqual([
+      'shared_terminal_send',
+      'shared_terminal_read',
+      'shared_terminal_send',
     ])
-    expect(outcomes[0]!.output).not.toContain('ANSWER_Y')
-    expect(outcomes[1]!.output).toContain('FOLLOWER_DONE')
-    expect(outcomes[1]!.output).not.toContain('ANSWER_Y')
+    expect(results[0]).toMatchObject({ name: 'shared_terminal_send', waitReason: 'human_handoff', generation: 1 })
+    expect(results[0]!.output).not.toContain('ANSWER_Y')
+    expect(results[0]!.output).not.toContain('/tmp/npm-cache')
+    expect(`${results[1]!.text}\n${results[1]!.viewport}`).toContain('ANSWER_Y')
+    expect(`${results[1]!.text}\n${results[1]!.viewport}`).toContain('LOCATION_/tmp/npm-cache')
+    expect(results[2]).toMatchObject({ name: 'shared_terminal_send', waitReason: 'prompt', generation: 1, output: expect.stringContaining('FOLLOWER_DONE') })
+    const read = calls.find(call => call.data.callId === 'handoff-read')
+    expect(read).toBeTruthy()
+    expect(notice.seq).toBeLessThan(read!.seq)
     expect(events.some(event => String(event.type) === 'interactive-terminal/output')).toBe(false)
   } finally { await browser.close(); await app.dispose() }
 }, 60000)

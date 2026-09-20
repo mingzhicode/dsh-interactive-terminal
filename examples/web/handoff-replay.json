@@ -1,54 +1,7 @@
 [
-  {
-    "kind": "chunks",
-    "chunks": [
-      {
-        "type": "tool-call-delta",
-        "index": 0,
-        "id": "handoff-start",
-        "name": "shared_terminal_send",
-        "argumentsDelta": "{\"text\":\"/bin/bash ./handoff-child.sh\",\"submit\":true}"
-      },
-      {
-        "type": "finish",
-        "reason": {
-          "kind": "tool-calls"
-        }
-      }
-    ]
-  },
-  {
-    "kind": "chunks",
-    "chunks": [
-      {
-        "type": "tool-call-delta",
-        "index": 0,
-        "id": "handoff-follower",
-        "name": "shared_terminal_send",
-        "argumentsDelta": "{\"text\":\"printf 'FOLLOWER_%s\\\\n' DONE\",\"submit\":true}"
-      },
-      {
-        "type": "finish",
-        "reason": {
-          "kind": "tool-calls"
-        }
-      }
-    ]
-  },
-  {
-    "kind": "chunks",
-    "chunks": [
-      {
-        "type": "text-delta",
-        "index": 0,
-        "text": "HANDOFF_REPLAY_DONE"
-      },
-      {
-        "type": "finish",
-        "reason": {
-          "kind": "stop"
-        }
-      }
-    ]
-  }
+  {"kind":"chunks","chunks":[{"type":"tool-call-delta","index":0,"id":"handoff-start","name":"shared_terminal_send","argumentsDelta":"{\"text\":\"/bin/bash ./handoff-child.sh\",\"submit\":true}"},{"type":"finish","reason":{"kind":"tool-calls"}}]},
+  {"kind":"chunks","chunks":[{"type":"text-delta","index":0,"text":"WAITING_FOR_HANDOFF_COMPLETION"},{"type":"finish","reason":{"kind":"stop"}}]},
+  {"kind":"chunks","chunks":[{"type":"tool-call-delta","index":0,"id":"handoff-read","name":"shared_terminal_read","argumentsDelta":"{\"offset\":0,\"count\":500}"},{"type":"finish","reason":{"kind":"tool-calls"}}]},
+  {"kind":"chunks","chunks":[{"type":"tool-call-delta","index":0,"id":"handoff-follower","name":"shared_terminal_send","argumentsDelta":"{\"text\":\"printf 'FOLLOWER_%s\\\\n' DONE\",\"submit\":true}"},{"type":"finish","reason":{"kind":"tool-calls"}}]},
+  {"kind":"chunks","chunks":[{"type":"text-delta","index":0,"text":"HANDOFF_REPLAY_DONE"},{"type":"finish","reason":{"kind":"stop"}}]}
 ]
