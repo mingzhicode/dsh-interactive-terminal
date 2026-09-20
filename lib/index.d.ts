@@ -564,6 +564,7 @@ declare class TerminalTransport {
   static inject: string[];
   private readonly tokens;
   private readonly epochs;
+  private readonly disposedOwners;
   private readonly controllers;
   private readonly connections;
   private readonly pending;
@@ -602,6 +603,7 @@ declare class TerminalTransport {
   private begin;
   private takeover;
   private operate;
+  private notifyHandoff;
   private cancel;
   private disconnected;
   private recover;
