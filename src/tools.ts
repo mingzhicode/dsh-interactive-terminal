@@ -194,7 +194,7 @@ export function registerTerminalTools(ctx: Context, config: Config): () => void 
     const dispose = () => { for (const remove of disposers.splice(0).reverse()) remove() }
     try {
       for (const definition of definitions) disposers.push(ctx.tools.register(definition))
-      disposers.push(ctx.systemPrompt.section({ name: 'tool:shared-terminal', order: 107, text: 'shared_terminal_send, shared_terminal_read, shared_terminal_signal, and shared_terminal_reset address the current Agent’s single shared terminal. Prefer the existing Bash tool for one-shot commands. Human and model input share a FIFO queue; read bypasses input ownership. If send returns a human handoff, wait for the user to finish and do not send answers behind the human input lease. Reset destroys terminal state. A timeout does not prove the foreground command exited.' }))
+      disposers.push(ctx.systemPrompt.section({ name: 'tool:shared-terminal', order: 107, text: 'shared_terminal_send, shared_terminal_read, shared_terminal_signal, and shared_terminal_reset address the current Agent’s single shared terminal. Prefer the existing Bash tool for one-shot commands. Human and model input share a FIFO queue; read bypasses input ownership. If send returns a human handoff, do not send answers behind the human input lease. The plugin notifies you when that lease settles; after the notice, call shared_terminal_read before sending terminal input or signals. Reset destroys terminal state. A timeout does not prove the foreground command exited.' }))
     } catch (error) { dispose(); throw error }
     return dispose
   }, 'shared terminal tools and prompt')

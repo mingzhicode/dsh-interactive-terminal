@@ -54,6 +54,8 @@ dsh --profile web --no-open
 
 每个 Agent 只允许一个浏览器控制终端，其他视图和所有移动端视图均为只读。独立的模型输入、人工输入、信号和重置按接受顺序执行；接手只转移当前队列位置，读取不占用输入权。
 
+一次接手租约覆盖同一前台交互中的全部问题。Enter 只提交答案，不通知 Agent；重新连接恢复同一个租约。交互返回受控 Shell 提示符、退出或完成中断恢复后，插件只通知所属 Agent 一次。Agent 必须在后续终端 mutation 前调用 `shared_terminal_read`；其中的 `text` 和 `viewport` 是该 PTY generation 的累计内容，不是本次接手的独立输出。仍在运行的 REPL 或 TUI 只有在退出或被中断后才发送完成通知。
+
 ## 配置
 
 在 `~/.dsh/profiles/web/cordis.patch.yml` 中添加覆盖项；使用自定义目录时，路径为 `$DSH_HOME/profiles/web/cordis.patch.yml`：
@@ -117,7 +119,7 @@ Patch 会替换该条目的整个 `config`，需写全要保留的自定义值�
 
 服务端决定终端身份、工作目录和 sandbox 策略。需要隔离时，隔离不可用就拒绝启动，不会退回非隔离执行。Shell 不继承 Harness 凭据。
 
-浏览器使用与 Agent 绑定、只存哈希、10 秒有效的一次性令牌连接；WebSocket 不接受调用者指定的 Agent、session 或 PTY 标识。原始终端输出和人工按键不作为会话事件记录；模型工具参数和有界结果仍正常记录。
+浏览器使用与 Agent 绑定、只存哈希、10 秒有效的一次性令牌连接；WebSocket 不接受调用者指定的 Agent、session 或 PTY 标识。原始终端输出和人工按键不作为会话事件记录；模型工具参数和有界结果仍正常记录。完成通知只包含生命周期元数据；PTY 输出和人工回答仍仅通过终端工具结果提供给模型。
 
 重置、Agent 销毁及插件卸载/HMR 会撤销连接并终止所属进程树。自定义 subprocess provider 必须与官方 rc.8 provider 一样，在发送信号时重新检查前台进程，并拒绝对顶层 shell 发送 `SIGKILL`。
 

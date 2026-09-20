@@ -109,7 +109,7 @@ describe('shared terminal tools', () => {
     expect(agent.session.events).toEqual([])
   })
 
-  it('returns a schema-valid human handoff result and instructs the model to wait', async () => {
+  it('returns a schema-valid human handoff result and instructs the model to read after notice', async () => {
     const { ctx, execute, agent, service, subprocess } = setup()
     const attachment = await service.attach(agent)
     const pending = execute('shared_terminal_send', { text: 'ask' })
@@ -124,8 +124,9 @@ describe('shared terminal tools', () => {
     expect(validateJsonSchemaValue(createTerminalToolDefinitions(DEFAULT_CONFIG, service)[0]!.output.schema, result.value)).toEqual([])
     const prompt = (await ctx.systemPrompt.assemble()).sections.find(section => section.name === 'tool:shared-terminal')?.text.toLowerCase() ?? ''
     expect(prompt).toContain('human handoff')
-    expect(prompt).toContain('wait for the user')
-    expect(prompt).toContain('do not send')
+    expect(prompt).toContain('plugin notifies')
+    expect(prompt).toContain('shared_terminal_read')
+    expect(prompt).toContain('before sending terminal input or signals')
     await service.disposeAgent(agent)
     await human.done
   })
