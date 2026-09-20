@@ -20,7 +20,7 @@ describe('terminal overlay', () => {
   ] as const)('shows the authoritative %s holder %s as %s', async (mode, holder, label) => {
     const transport = fakeClientTransport()
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     await transport.receive(snapshot)
     await transport.receive(mode === 'controller'
       ? { type: 'terminal.attached', version: 1, generation: 1, mode, resume: 'proof', maxInputBytes: 32 }
@@ -34,7 +34,7 @@ describe('terminal overlay', () => {
     const open = vi.spyOn(Terminal.prototype, 'open')
     const focus = vi.spyOn(Terminal.prototype, 'focus')
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     await attachController(transport)
     const terminal = open.mock.contexts[0] as Terminal
     await transport.receive({ type: 'terminal.status', version: 1, generation: 1, status: { kind: 'running' }, queueStatus: 'busy', holder: 'model-send', takeoverId: takeoverId('7'), pendingCount: 1 })
@@ -59,7 +59,7 @@ describe('terminal overlay', () => {
     const transport = fakeClientTransport()
     const open = vi.spyOn(Terminal.prototype, 'open')
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     await attachController(transport)
     const terminal = open.mock.contexts[0] as Terminal
     await transport.receive({ type: 'terminal.status', version: 1, generation: 1, status: { kind: 'running' }, queueStatus: 'busy', holder: 'model-send', takeoverId: takeoverId('8'), pendingCount: 0 })
@@ -78,7 +78,7 @@ describe('terminal overlay', () => {
     const transport = fakeClientTransport()
     const open = vi.spyOn(Terminal.prototype, 'open')
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     await attachController(transport)
     const terminal = open.mock.contexts[0] as Terminal
     await transport.receive({ type: 'terminal.status', version: 1, generation: 1, status: { kind: 'running' }, queueStatus, holder: queueStatus === 'busy' ? 'model-send' : null, takeoverId: queueStatus === 'busy' ? takeoverId('1') : null, pendingCount: 0 })
@@ -98,7 +98,7 @@ describe('terminal overlay', () => {
     const transport = fakeClientTransport()
     const open = vi.spyOn(Terminal.prototype, 'open')
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     await attachController(transport)
     const terminal = open.mock.contexts[0] as Terminal
     const replies: string[] = []
@@ -123,7 +123,7 @@ describe('terminal overlay', () => {
     const transport = fakeClientTransport()
     const open = vi.spyOn(Terminal.prototype, 'open')
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     await attachController(transport)
     const terminal = open.mock.contexts[0] as Terminal
     let parsed!: () => void
@@ -151,7 +151,7 @@ describe('terminal overlay', () => {
     const transport = fakeClientTransport()
     render(<TerminalOverlay sessionId={testSessionId('session-a')} transport={transport} mobile={false} />)
     expect(transport.attach).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     expect(transport.attach).toHaveBeenCalledWith('session-a', expect.objectContaining({ readonly: false }), expect.any(Object))
   })
 
@@ -166,7 +166,7 @@ describe('terminal overlay', () => {
   it('closes settings with the panel and reopens both from the settings button', () => {
     const transport = fakeClientTransport()
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    const terminal = screen.getByRole('button', { name: 'Terminal' })
+    const terminal = screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ })
     const settings = screen.getByRole('button', { name: 'Terminal settings' })
     fireEvent.click(settings)
     fireEvent.click(terminal)
@@ -181,7 +181,7 @@ describe('terminal overlay', () => {
   it('sends the first idle key once, buffers later keys until grant, and interrupts the lease', async () => {
     const transport = fakeClientTransport()
     render(<TerminalOverlay sessionId={testSessionId('session-a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     const input = vi.spyOn(Terminal.prototype, 'open')
     await attachController(transport)
     const type = (data: string) => (input.mock.contexts[0] as Terminal).input(data, true)
@@ -204,7 +204,7 @@ describe('terminal overlay', () => {
     const open = vi.spyOn(Terminal.prototype, 'open')
     const resize = vi.spyOn(Terminal.prototype, 'resize')
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     await attachController(transport)
     const terminal = open.mock.contexts[0] as Terminal
     expect(terminal.options.scrollback).toBe(20)
@@ -220,7 +220,7 @@ describe('terminal overlay', () => {
   it('counts UTF-8 bytes across first, pending and sent keys and refuses overflow', async () => {
     const transport = fakeClientTransport()
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     const input = vi.spyOn(Terminal.prototype, 'open')
     await attachController(transport)
     const type = (data: string) => (input.mock.contexts[0] as Terminal).input(data, true)
@@ -236,7 +236,7 @@ describe('terminal overlay', () => {
   it.each([false, true])('disables input and reset for read-only or mobile (%s)', async mobile => {
     const transport = fakeClientTransport()
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={mobile} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     const input = vi.spyOn(Terminal.prototype, 'open')
     await transport.receive(snapshot)
     await transport.receive({ version: 1, generation: 1, type: 'terminal.attached', mode: 'readonly', reason: mobile ? 'readonly' : 'controller-busy', maxInputBytes: 32 })
@@ -252,7 +252,7 @@ describe('terminal overlay', () => {
   it.each(['blocked', 'exited'] as const)('allows a controller to confirm reset from %s', async queueStatus => {
     const transport = fakeClientTransport()
     render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     await attachController(transport)
     await transport.receive({ version: 1, generation: 1, type: 'terminal.status', queueStatus, status: queueStatus === 'exited' ? { kind: 'exited', exitCode: 0, signal: null } : { kind: 'running' }, holder: null, takeoverId: null, pendingCount: 0 })
     fireEvent.click(screen.getByRole('button', { name: 'Terminal settings' }))
@@ -265,14 +265,17 @@ describe('terminal overlay', () => {
   it('preserves the socket on collapse and disposes renderer and socket on session switch/unmount', async () => {
     const transport = fakeClientTransport()
     const view = render(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     const dispose = vi.spyOn(Terminal.prototype, 'dispose')
     await attachController(transport)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     expect(transport.connections[0]!.close).not.toHaveBeenCalled()
     view.rerender(<TerminalOverlay sessionId={testSessionId('b')} transport={transport} mobile={false} />)
     await waitFor(() => expect(transport.connections[0]!.close).toHaveBeenCalled())
     expect(dispose).toHaveBeenCalledTimes(1)
+    view.rerender(<TerminalOverlay sessionId={testSessionId('a')} transport={transport} mobile={false} />)
+    expect(screen.getByRole('button', { name: 'Open terminal' }).getAttribute('aria-expanded')).toBe('false')
+    expect(transport.attach).toHaveBeenCalledTimes(1)
     view.unmount()
     dispose.mockRestore()
   })
@@ -305,11 +308,11 @@ it('registers an additive shell overlay and effect disposal aborts mounted crede
   const view = render(<TerminalOverlay sessionId={testSessionId('a')} {...props} />)
   try {
     expect(rpc.call).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     expect(rpc.call).toHaveBeenCalledWith('/dsh-interactive-terminal', 'token', { sessionId: 'a', readonly: false }, expect.any(AbortSignal))
     view.rerender(<TerminalOverlay sessionId={testSessionId('b')} {...props} />)
     expect(calls[0]!.aborted).toBe(true)
-    fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+    fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
     act(() => { for (const dispose of disposers.reverse()) dispose() })
     expect(calls[1]!.aborted).toBe(true)
     expect(FakeWebSocket.instances).toHaveLength(0)

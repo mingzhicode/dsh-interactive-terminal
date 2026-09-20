@@ -13,8 +13,8 @@ interface ViewState extends ClientTerminalState {
     }>['takeoverId'];
 }
 type Command = 'takeover' | 'end' | 'reset' | 'retry' | 'clear' | 'larger' | 'smaller';
-/** Own one mounted view; collapse hides it without disconnecting its PTY. */
-export declare function useTerminal(sessionId: string, transport: ClientTransport, mobile: boolean, active: boolean): {
+/** Own one mounted view; manual collapse preserves its PTY, disposal releases the view and notifies the stable callback. */
+export declare function useTerminal(sessionId: string, transport: ClientTransport, mobile: boolean, active: boolean, onDisposed: () => void): {
     state: ViewState;
     container: import("react").RefObject<HTMLDivElement>;
     act: (action: Command) => void;

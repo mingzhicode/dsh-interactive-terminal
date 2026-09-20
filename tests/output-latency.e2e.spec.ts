@@ -21,7 +21,7 @@ it('renders fragmented model output promptly and retains it across reconnect', a
       })
     })
     await openWorkspace(page, app.origin, app.workspace)
-    await page.getByRole('button', { name: 'Terminal', exact: true }).click()
+    await page.getByRole('button', { name: /^(Open terminal|Terminal)$/, exact: true }).click()
     const panel = page.getByRole('region', { name: 'Session terminal', exact: true })
     await expect.poll(() => panel.getByRole('status').innerText()).toContain('connected ready')
     const started = performance.now()

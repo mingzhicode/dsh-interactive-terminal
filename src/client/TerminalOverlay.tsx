@@ -1,5 +1,5 @@
 /** Native collapsible panel contributed above the session composer. */
-import { useId, useState } from 'react'
+import { useCallback, useId, useState } from 'react'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ClientTransport } from './protocol.ts'
 import { useTerminal } from './use-terminal.ts'
@@ -23,12 +23,15 @@ function SessionTerminal({ sessionId, transport, mobile }: { sessionId: string; 
   const [confirm, setConfirm] = useState(false)
   const panelId = useId()
   const settingsId = useId()
-  const { state, container, act } = useTerminal(sessionId, transport, mobile, active)
+  const close = useCallback(() => {
+    setExpanded(false); setActive(false); setSettingsOpen(false); setConfirm(false)
+  }, [])
+  const { state, container, act } = useTerminal(sessionId, transport, mobile, active, close)
   return <section className="dsh-terminal" aria-label="Session terminal">
     <header className="dsh-terminal-header">
       <button className="dsh-terminal-toggle" type="button" aria-expanded={expanded} aria-controls={panelId} onClick={() => { const open = !expanded; setExpanded(open); if (!open) setSettingsOpen(false); setActive(true) }}>
         <span className="dsh-terminal-chevron" aria-hidden="true">›</span>
-        <span>Terminal</span>
+        <span>{expanded ? 'Terminal' : 'Open terminal'}</span>
       </button>
       <button className="dsh-terminal-settings-button" type="button" aria-label="Terminal settings" aria-expanded={settingsOpen} aria-controls={settingsId} onClick={() => { const open = !settingsOpen; setSettingsOpen(open); if (open) { setExpanded(true); setActive(true) } }}>
         <span aria-hidden="true">⚙</span>

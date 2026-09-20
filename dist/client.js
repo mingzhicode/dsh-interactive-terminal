@@ -9194,7 +9194,7 @@ function listenForHumanInput(terminal, input) {
     }
   } };
 }
-function useTerminal(sessionId, transport, mobile, active) {
+function useTerminal(sessionId, transport, mobile, active, onDisposed) {
   const container = (0, import_react.useRef)(null);
   const [state, setState] = (0, import_react.useState)(initial);
   const command = (0, import_react.useRef)(() => {
@@ -9293,6 +9293,10 @@ function useTerminal(sessionId, transport, mobile, active) {
       });
     };
     const disconnect = (code) => {
+      if (code === 4002) {
+        closeView();
+        return;
+      }
       attempt += 1;
       attachment?.dispose();
       attached = false;
@@ -9301,10 +9305,6 @@ function useTerminal(sessionId, transport, mobile, active) {
       if ([1007, 1008, 1009].includes(code)) {
         inputBlocked = true;
         view.notice = "Terminal protocol error. Reconnect explicitly after correcting input.";
-      } else if (code === 4002) {
-        resume = void 0;
-        discardInput();
-        view.notice = "Terminal disposed. Reconnect when available.";
       } else {
         if (code === 4001) {
           resume = void 0;
@@ -9473,13 +9473,19 @@ function useTerminal(sessionId, transport, mobile, active) {
       command.current = () => {
       };
     };
-    const untrack = transport.track(cleanup);
+    const closeView = () => {
+      if (!live) return;
+      cleanup();
+      setState(initial);
+      onDisposed();
+    };
+    const untrack = transport.track(closeView);
     connect();
     return () => {
       cleanup();
       untrack();
     };
-  }, [sessionId, transport, mobile, active]);
+  }, [sessionId, transport, mobile, active, onDisposed]);
   return { state, container, act: (action) => command.current(action) };
 }
 
@@ -9495,7 +9501,13 @@ function SessionTerminal({ sessionId, transport, mobile }) {
   const [confirm2, setConfirm] = (0, import_react2.useState)(false);
   const panelId = (0, import_react2.useId)();
   const settingsId = (0, import_react2.useId)();
-  const { state, container, act } = useTerminal(sessionId, transport, mobile, active);
+  const close = (0, import_react2.useCallback)(() => {
+    setExpanded(false);
+    setActive(false);
+    setSettingsOpen(false);
+    setConfirm(false);
+  }, []);
+  const { state, container, act } = useTerminal(sessionId, transport, mobile, active, close);
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: "dsh-terminal", "aria-label": "Session terminal", children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { className: "dsh-terminal-header", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "dsh-terminal-toggle", type: "button", "aria-expanded": expanded, "aria-controls": panelId, onClick: () => {
@@ -9505,7 +9517,7 @@ function SessionTerminal({ sessionId, transport, mobile }) {
         setActive(true);
       }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "dsh-terminal-chevron", "aria-hidden": "true", children: "\u203A" }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Terminal" })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: expanded ? "Terminal" : "Open terminal" })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "dsh-terminal-settings-button", type: "button", "aria-label": "Terminal settings", "aria-expanded": settingsOpen, "aria-controls": settingsId, onClick: () => {
         const open = !settingsOpen;

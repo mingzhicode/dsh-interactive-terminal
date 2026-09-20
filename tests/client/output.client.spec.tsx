@@ -13,7 +13,7 @@ async function setup() {
   const open = vi.spyOn(Terminal.prototype, 'open')
   const commit = vi.fn()
   const view = render(<Profiler id="terminal" onRender={commit}><TerminalOverlay sessionId={testSessionId('output')} transport={transport} mobile={false} /></Profiler>)
-  fireEvent.click(screen.getByRole('button', { name: 'Terminal' }))
+  fireEvent.click(screen.getByRole('button', { name: /^(Open terminal|Terminal)$/ }))
   await attachController(transport)
   const current = () => open.mock.contexts.at(-1) as Terminal
   await act(async () => { await new Promise<void>(resolve => current().write('', resolve)) })

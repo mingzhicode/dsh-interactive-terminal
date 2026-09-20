@@ -57,8 +57,8 @@ function listenForHumanInput(terminal: Terminal, input: (data: string) => void):
   } }
 }
 
-/** Own one mounted view; collapse hides it without disconnecting its PTY. */
-export function useTerminal(sessionId: string, transport: ClientTransport, mobile: boolean, active: boolean) {
+/** Own one mounted view; manual collapse preserves its PTY, disposal releases the view and notifies the stable callback. */
+export function useTerminal(sessionId: string, transport: ClientTransport, mobile: boolean, active: boolean, onDisposed: () => void) {
   const container = useRef<HTMLDivElement>(null)
   const [state, setState] = useState(initial)
   const command = useRef<(command: Command) => void>(() => {})
@@ -134,14 +134,13 @@ export function useTerminal(sessionId: string, transport: ClientTransport, mobil
       })
     }
     const disconnect = (code: number) => {
+      if (code === 4002) { closeView(); return }
       attempt += 1
       attachment?.dispose()
       attached = false; idleReady = false
       view.connection = 'disconnected'
       if ([1007, 1008, 1009].includes(code)) {
         inputBlocked = true; view.notice = 'Terminal protocol error. Reconnect explicitly after correcting input.'
-      } else if (code === 4002) {
-        resume = undefined; discardInput(); view.notice = 'Terminal disposed. Reconnect when available.'
       } else {
         if (code === 4001) { resume = undefined; discardInput() }
         else view.notice = 'Connection lost; sent input will not be repeated.'
@@ -257,10 +256,14 @@ export function useTerminal(sessionId: string, transport: ClientTransport, mobil
       live = false; attempt += 1; clearTimeout(retryTimer); attachment?.dispose(); inputDisposer?.dispose(); terminal?.dispose()
       resume = undefined; view.pendingInput = ''; command.current = () => {}
     }
-    const untrack = transport.track(cleanup)
+    const closeView = () => {
+      if (!live) return
+      cleanup(); setState(initial); onDisposed()
+    }
+    const untrack = transport.track(closeView)
     connect()
     return () => { cleanup(); untrack() }
-  }, [sessionId, transport, mobile, active])
+  }, [sessionId, transport, mobile, active, onDisposed])
 
   return { state, container, act: (action: Command) => command.current(action) }
 }

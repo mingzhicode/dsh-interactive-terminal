@@ -17,8 +17,9 @@ it('renders a burst through the real client hook without per-chunk browser timer
         const open = Terminal.prototype.open;
         Terminal.prototype.open = function(element) { terminal = this; open.call(this, element); };
         const transport = { attach(_session, _options, callbacks) { handlers = callbacks; return {send() {}, dispose() {}}; }, track() { return () => {}; } };
+        const onDisposed = () => {};
         function View() {
-          const { container } = useTerminal('benchmark', transport, false, true);
+          const { container } = useTerminal('benchmark', transport, false, true, onDisposed);
           return <div ref={container} />;
         }
         const root = createRoot(document.getElementById('app'));
