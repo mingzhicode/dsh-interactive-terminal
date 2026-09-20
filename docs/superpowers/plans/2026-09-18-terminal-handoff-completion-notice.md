@@ -4,7 +4,7 @@
 
 **Goal:** Automatically resume the owning Agent exactly once after an explicit browser takeover settles, while keeping terminal output model-visible only through `shared_terminal_read`.
 
-**Architecture:** `TerminalTransport` already owns the exact Agent, controller, and `HumanLease.done` wait. Extend only the explicit takeover path so settlement creates a plugin `notice`: inject it into a running Agent or follow it up to an idle Agent. The notice carries lifecycle metadata and a read-first instruction, while the existing read tool remains the sole path for PTY contents.
+**Architecture:** `TerminalTransport` already owns the exact Agent, controller, and `HumanLease.done` wait. Extend only the explicit takeover path so settlement creates a plugin `notice`: steer it into a running Agent or follow it up to an idle Agent. Waking steering survives active cancellation convergence and cannot remain parked after a running-to-idle race. The notice carries lifecycle metadata and a read-first instruction, while the existing read tool remains the sole path for PTY contents.
 
 **Tech Stack:** TypeScript 6, Cordis services, DeepSeek Harness Agent/LLM public APIs, `ws`, Vitest, Playwright, replay LLM fixtures, tsdown.
 
@@ -15,7 +15,7 @@
 - One `HumanLease` spans every Enter and all prompts until controlled Shell prompt recovery, Shell exit, cancellation recovery, or failure; reconnect resumes that lease and must not create another notification.
 - A notice contains generation, output sequence, settlement reason when available, and terminal status; it contains no raw PTY output, viewport, history, artificial tool result, or human answer.
 - Use `source: { kind: 'plugin', plugin: 'dsh-interactive-terminal', form: 'notice', ... }`; use the exact Agent object, never a session-id lookup that could reach a replacement.
-- Call `inject()` when the owner is `running` and `followup()` when it is `idle`; suppress delivery after terminal/Agent disposal.
+- Call `steer()` when the owner is `running` and `followup()` when it is `idle`; suppress delivery after terminal/Agent disposal.
 - The notice instructs the Agent to call cumulative `shared_terminal_read` before any new terminal send or signal. Do not add operation/sequence filtering, a fifth tool, a config field, a WebSocket frame, a UI control, or a dependency.
 - Keep raw PTY bytes and human keys out of the session log. Do not change tool schemas, queue ordering, fixed PTY geometry, or the `human_handoff` result.
 - Update English and Chinese documentation together. Build and test only; do not publish the npm package.
@@ -29,7 +29,7 @@
 - Test: `tests/transport.spec.ts:1-455`
 
 **Interfaces:**
-- Consumes: `HumanLease.done: Promise<TerminalOperationResult>`, `TerminalAttachment.read(): TerminalReadResult`, `Agent.status`, `Agent.inject(message)`, and `Agent.followup(message)`.
+- Consumes: `HumanLease.done: Promise<TerminalOperationResult>`, `TerminalAttachment.read(): TerminalReadResult`, `Agent.status`, `Agent.steer(message)`, and `Agent.followup(message)`.
 - Produces: a private `HandoffSettlement` union and `TerminalTransport.notifyHandoff(...)`; no public export or protocol change.
 
 - [ ] **Step 1: Add failing transport tests for multi-prompt completion and idle delivery**
@@ -40,7 +40,7 @@ Add one test beside the existing exact-operation takeover test. It must reconnec
 it('wakes an idle owner once after a reconnected multi-prompt takeover settles', async () => {
   const f = await makeTransport({ disconnectGraceMs: 400 })
   const followup = vi.spyOn(f.agent, 'followup')
-  const inject = vi.spyOn(f.agent, 'inject')
+  const steer = vi.spyOn(f.agent, 'steer')
   const a = await attachController(f)
   const model = f.service.send(f.agent, { text: 'npm update', submit: true })
   await vi.waitFor(() => expect(f.subprocess.handles[0]!.write).toHaveBeenCalledWith('npm update\r'))
@@ -66,12 +66,12 @@ it('wakes an idle owner once after a reconnected multi-prompt takeover settles',
   b.send('human.input', { input: '/tmp/npm-cache\r' })
   await vi.waitFor(() => expect(f.subprocess.handles[0]!.write).toHaveBeenCalledWith('/tmp/npm-cache\r'))
   expect(followup).not.toHaveBeenCalled()
-  expect(inject).not.toHaveBeenCalled()
+  expect(steer).not.toHaveBeenCalled()
 
   const record = await f.service.ensure(f.agent)
   f.subprocess.handles[0]!.output.write(`ANSWER=[yes]\r\nLOCATION=[/tmp/npm-cache]\r\n${record.terminal.prompt.marker}`)
   await vi.waitFor(() => expect(followup).toHaveBeenCalledTimes(1))
-  expect(inject).not.toHaveBeenCalled()
+  expect(steer).not.toHaveBeenCalled()
   const message = followup.mock.calls[0]![0]
   expect(message.source).toMatchObject({ kind: 'plugin', plugin: 'dsh-interactive-terminal', form: 'notice' })
   const block = message.content[0]
@@ -91,11 +91,11 @@ it('wakes an idle owner once after a reconnected multi-prompt takeover settles',
 Add focused cases using the same public WebSocket path:
 
 ```ts
-it('injects a completed takeover into a running owner', async () => {
+it('steers a completed takeover into a running owner', async () => {
   const f = await makeTransport()
   Object.defineProperty(f.agent, 'status', { configurable: true, value: 'running' })
   const followup = vi.spyOn(f.agent, 'followup')
-  const inject = vi.spyOn(f.agent, 'inject')
+  const steer = vi.spyOn(f.agent, 'steer')
   const a = await attachController(f)
   const model = f.service.send(f.agent, { text: 'ask', submit: true })
   await vi.waitFor(() => expect(a.frames.some(frame => frame.type === 'terminal.status' && frame.takeoverId !== null)).toBe(true))
@@ -104,14 +104,14 @@ it('injects a completed takeover into a running owner', async () => {
   a.send('human.takeover', { target: state.takeoverId })
   await expect(model).resolves.toMatchObject({ waitReason: 'human_handoff' })
   f.subprocess.handles[0]!.output.write((await f.service.ensure(f.agent)).terminal.prompt.marker)
-  await vi.waitFor(() => expect(inject).toHaveBeenCalledTimes(1))
+  await vi.waitFor(() => expect(steer).toHaveBeenCalledTimes(1))
   expect(followup).not.toHaveBeenCalled()
 })
 
 it('does not notify for ordinary input, rejected takeover, or disposed ownership', async () => {
   const f = await makeTransport()
   const followup = vi.spyOn(f.agent, 'followup')
-  const inject = vi.spyOn(f.agent, 'inject')
+  const steer = vi.spyOn(f.agent, 'steer')
   const a = await attachController(f)
   a.send('human.begin', { input: 'echo ordinary\r' })
   await vi.waitFor(() => expect(a.frames.some(frame => frame.type === 'human.granted')).toBe(true))
@@ -128,7 +128,7 @@ it('does not notify for ordinary input, rejected takeover, or disposed ownership
   await expect(model).resolves.toMatchObject({ waitReason: 'human_handoff' })
   await f.service.disposeAgent(f.agent)
   expect(followup).not.toHaveBeenCalled()
-  expect(inject).not.toHaveBeenCalled()
+  expect(steer).not.toHaveBeenCalled()
 })
 
 it('reports an acquired takeover failure once without leaking error or terminal text', async () => {
@@ -160,7 +160,7 @@ it('reports an acquired takeover failure once without leaking error or terminal 
 
 Run: `pnpm vitest run tests/transport.spec.ts`
 
-Expected: the new tests fail because `followup` and `inject` are never called.
+Expected: the new tests fail because `followup` and `steer` are never called.
 
 - [ ] **Step 4: Implement the minimal takeover-only settlement hook**
 
@@ -245,7 +245,7 @@ private notifyHandoff(agent: Agent, outcome: HandoffSettlement): void {
   })
   try {
     if (agent.status === 'idle') agent.followup(message)
-    else agent.inject(message)
+    else agent.steer(message)
   } catch (error) {
     this.ctx.logger('interactive-terminals').warn(error)
   }
@@ -258,7 +258,7 @@ The synchronous status check and delivery run in one JavaScript turn. The contai
 
 Run: `pnpm vitest run tests/transport.spec.ts`
 
-Expected: PASS, including exactly-once reconnect, multi-prompt silence before the final prompt, running injection, idle wake, failure notice, and non-takeover exclusions.
+Expected: PASS, including exactly-once reconnect, multi-prompt silence before the final prompt, running steering, idle wake, failure notice, and non-takeover exclusions.
 
 - [ ] **Step 6: Commit the host behavior**
 
@@ -313,18 +313,18 @@ The surrounding one-terminal, Bash preference, FIFO, read-bypass, reset, and tim
 Append this English paragraph after the takeover paragraph in `README.md`:
 
 ```markdown
-One takeover lease covers every prompt in the same foreground interaction. Enter submits an answer without notifying the Agent, and reconnect resumes the same lease. When the interaction returns to the controlled Shell prompt, exits, or finishes interrupt recovery, the plugin notifies the owning Agent once. The Agent reads `shared_terminal_read` before any later terminal mutation; its `text` and `viewport` are cumulative for the PTY generation, not isolated to that handoff. A live REPL or TUI sends no completion notice until it exits or is interrupted.
+One takeover lease covers every prompt in the same foreground interaction. Enter submits an answer without notifying the Agent, and reconnect resumes the same lease. When the interaction returns to the controlled Shell prompt, exits, or finishes interrupt recovery, the plugin notifies the owning Agent once. The Agent reads `shared_terminal_read` before sending later terminal input or signals; its `text` and `viewport` are cumulative for the PTY generation, not isolated to that handoff. A live REPL or TUI sends no completion notice until it exits or is interrupted.
 ```
 
 Append the corresponding Chinese paragraph after the takeover paragraph in `README.zh.md`:
 
 ```markdown
-一次接手租约覆盖同一前台交互中的全部问题。Enter 只提交答案，不通知 Agent；重新连接恢复同一个租约。交互返回受控 Shell 提示符、退出或完成中断恢复后，插件只通知所属 Agent 一次。Agent 必须在后续终端 mutation 前调用 `shared_terminal_read`；其中的 `text` 和 `viewport` 是该 PTY generation 的累计内容，不是本次接手的独立输出。仍在运行的 REPL 或 TUI 只有在退出或被中断后才发送完成通知。
+一次接手租约覆盖同一前台交互中的全部问题。Enter 只提交答案，不通知 Agent；重新连接恢复同一个租约。交互返回受控 Shell 提示符、退出或完成中断恢复后，插件只通知所属 Agent 一次。Agent 必须先调用 `shared_terminal_read`，再发送后续终端输入或信号；其中的 `text` 和 `viewport` 是该 PTY 代次的累计内容，不是本次接手的独立输出。仍在运行的 REPL 或 TUI 只有在退出或被中断后才发送完成通知。
 ```
 
 In both Security/logging sections, extend the existing statement with: “The completion notice contains lifecycle metadata only; PTY output and human answers still reach the model only through terminal tool results.” Use the direct Chinese equivalent in `README.zh.md`.
 
-Add one `0.1.0 - Unreleased` changelog bullet: “Notify the owning Agent once after an explicit human handoff settles, then require a cumulative shared-terminal read before further terminal mutation.”
+Add one `0.1.0 - Unreleased` changelog bullet: “Notify the owning Agent once after an explicit human handoff settles, then require a cumulative shared-terminal read before further terminal input or signals.”
 
 - [ ] **Step 5: Run focused prompt tests and prose checks**
 

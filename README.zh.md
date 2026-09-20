@@ -54,7 +54,7 @@ dsh --profile web --no-open
 
 每个 Agent 只允许一个浏览器控制终端，其他视图和所有移动端视图均为只读。独立的模型输入、人工输入、信号和重置按接受顺序执行；接手只转移当前队列位置，读取不占用输入权。
 
-一次接手租约覆盖同一前台交互中的全部问题。Enter 只提交答案，不通知 Agent；重新连接恢复同一个租约。交互返回受控 Shell 提示符、退出或完成中断恢复后，插件只通知所属 Agent 一次。Agent 必须在后续终端 mutation 前调用 `shared_terminal_read`；其中的 `text` 和 `viewport` 是该 PTY generation 的累计内容，不是本次接手的独立输出。仍在运行的 REPL 或 TUI 只有在退出或被中断后才发送完成通知。
+一次接手租约覆盖同一前台交互中的全部问题。Enter 只提交答案，不通知 Agent；重新连接恢复同一个租约。交互返回受控 Shell 提示符、退出或完成中断恢复后，插件只通知所属 Agent 一次。Agent 必须先调用 `shared_terminal_read`，再发送后续终端输入或信号；其中的 `text` 和 `viewport` 是该 PTY 代次的累计内容，不是本次接手的独立输出。仍在运行的 REPL 或 TUI 只有在退出或被中断后才发送完成通知。
 
 ## 配置
 

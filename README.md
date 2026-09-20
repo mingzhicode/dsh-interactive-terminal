@@ -54,7 +54,7 @@ The tarball includes the host and browser builds and has no build-on-install or 
 
 One browser controls an Agent's terminal; additional views and all mobile views are read-only. Independent model sends, human input, signals and resets run in acceptance order. Handoff transfers the active slot in place; reads bypass the queue.
 
-One takeover lease covers every prompt in the same foreground interaction. Enter submits an answer without notifying the Agent, and reconnect resumes the same lease. When the interaction returns to the controlled Shell prompt, exits, or finishes interrupt recovery, the plugin notifies the owning Agent once. The Agent reads `shared_terminal_read` before any later terminal mutation; its `text` and `viewport` are cumulative for the PTY generation, not isolated to that handoff. A live REPL or TUI sends no completion notice until it exits or is interrupted.
+One takeover lease covers every prompt in the same foreground interaction. Enter submits an answer without notifying the Agent, and reconnect resumes the same lease. When the interaction returns to the controlled Shell prompt, exits, or finishes interrupt recovery, the plugin notifies the owning Agent once. The Agent reads `shared_terminal_read` before sending later terminal input or signals; its `text` and `viewport` are cumulative for the PTY generation, not isolated to that handoff. A live REPL or TUI sends no completion notice until it exits or is interrupted.
 
 ## Configuration
 

@@ -353,7 +353,7 @@ export class TerminalTransport {
     })
     try {
       if (agent.status === 'idle') agent.followup(message)
-      else agent.inject(message)
+      else agent.steer(message)
     } catch (error) {
       this.ctx.logger('interactive-terminals').warn(error)
     }

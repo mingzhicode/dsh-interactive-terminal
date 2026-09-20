@@ -204,7 +204,7 @@ describe('terminal Web transport', () => {
   it('wakes an idle owner once after a reconnected multi-prompt takeover settles', async () => {
     const f = await makeTransport({ disconnectGraceMs: 400 })
     const followup = vi.spyOn(f.agent, 'followup')
-    const inject = vi.spyOn(f.agent, 'inject')
+    const steer = vi.spyOn(f.agent, 'steer')
     const a = await attachController(f)
     const model = f.service.send(f.agent, { text: 'npm update', submit: true })
     await vi.waitFor(() => expect(f.subprocess.handles[0]!.write).toHaveBeenCalledWith('npm update\r'))
@@ -231,12 +231,12 @@ describe('terminal Web transport', () => {
     b.send('human.input', { input: '/tmp/npm-cache\r' })
     await vi.waitFor(() => expect(f.subprocess.handles[0]!.write).toHaveBeenCalledWith('/tmp/npm-cache\r'))
     expect(followup).not.toHaveBeenCalled()
-    expect(inject).not.toHaveBeenCalled()
+    expect(steer).not.toHaveBeenCalled()
 
     const record = await f.service.ensure(f.agent)
     f.subprocess.handles[0]!.output.write(`ANSWER=[yes]\r\nLOCATION=[/tmp/npm-cache]\r\n${record.terminal.prompt.marker}dsh$ `)
     await vi.waitFor(() => expect(followup).toHaveBeenCalledTimes(1))
-    expect(inject).not.toHaveBeenCalled()
+    expect(steer).not.toHaveBeenCalled()
     const message = followup.mock.calls[0]![0]
     expect(message.source).toMatchObject({ kind: 'plugin', plugin: 'dsh-interactive-terminal', form: 'notice' })
     const block = message.content[0]
@@ -250,10 +250,11 @@ describe('terminal Web transport', () => {
     expect(followup).toHaveBeenCalledTimes(1)
   })
 
-  it('injects a completed takeover into a running owner', async () => {
+  it('uses waking steering for a completed takeover while the owner is running', async () => {
     const f = await makeTransport()
     Object.defineProperty(f.agent, 'status', { configurable: true, value: 'running' })
     const followup = vi.spyOn(f.agent, 'followup')
+    const steer = vi.spyOn(f.agent, 'steer')
     const inject = vi.spyOn(f.agent, 'inject')
     const a = await attachController(f)
     const model = f.service.send(f.agent, { text: 'ask', submit: true })
@@ -263,14 +264,15 @@ describe('terminal Web transport', () => {
     a.send('human.takeover', { target: state.takeoverId })
     await expect(model).resolves.toMatchObject({ waitReason: 'human_handoff' })
     f.subprocess.handles[0]!.output.write((await f.service.ensure(f.agent)).terminal.prompt.marker)
-    await vi.waitFor(() => expect(inject).toHaveBeenCalledTimes(1))
+    await vi.waitFor(() => expect(steer).toHaveBeenCalledTimes(1))
     expect(followup).not.toHaveBeenCalled()
+    expect(inject).not.toHaveBeenCalled()
   })
 
   it('does not notify for ordinary input, rejected takeover, or disposed ownership', async () => {
     const f = await makeTransport()
     const followup = vi.spyOn(f.agent, 'followup')
-    const inject = vi.spyOn(f.agent, 'inject')
+    const steer = vi.spyOn(f.agent, 'steer')
     const a = await attachController(f)
     a.send('human.begin', { input: 'echo ordinary\r' })
     await vi.waitFor(() => expect(a.frames.some(frame => frame.type === 'human.granted')).toBe(true))
@@ -287,7 +289,7 @@ describe('terminal Web transport', () => {
     await expect(model).resolves.toMatchObject({ waitReason: 'human_handoff' })
     await f.service.disposeAgent(f.agent)
     expect(followup).not.toHaveBeenCalled()
-    expect(inject).not.toHaveBeenCalled()
+    expect(steer).not.toHaveBeenCalled()
   })
 
   it('reports an acquired takeover failure once without leaking error or terminal text', async () => {
