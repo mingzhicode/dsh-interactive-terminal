@@ -16,10 +16,10 @@
 npm install -g @deepseek-ai/dsh@0.1.0-rc.8 pnpm@10.18.3
 ```
 
-插件 `0.1.0` 发布到 npm 后，安装到 Web profile 并启动 DSH：
+将版本 `0.2.0` 安装到 Web profile 并启动 DSH：
 
 ```sh
-dsh plugin --profile web add dsh-interactive-terminal@0.1.0
+dsh plugin --profile web add dsh-interactive-terminal@0.2.0
 dsh --profile web --no-open
 ```
 
@@ -35,14 +35,14 @@ dsh --profile web --no-open
 
 ### 安装已下载的 npm 压缩包
 
-如果已获得 `dsh-interactive-terminal-0.1.0.tgz`，无需克隆或构建源码，直接安装：
+如果已获得 `dsh-interactive-terminal-0.2.0.tgz`，无需克隆或构建源码，直接安装：
 
 ```sh
-dsh plugin --profile web add ./dsh-interactive-terminal-0.1.0.tgz
+dsh plugin --profile web add ./dsh-interactive-terminal-0.2.0.tgz
 dsh --profile web --no-open
 ```
 
-压缩包已包含服务端与浏览器构建产物，安装时不执行构建或 `postinstall`；安装依赖仍可能需要访问 registry。若要单独下载已发布的压缩包，可运行 `npm pack dsh-interactive-terminal@0.1.0`。
+压缩包已包含服务端与浏览器构建产物，安装时不执行构建或 `postinstall`；安装依赖仍可能需要访问 registry。若要单独下载已发布的压缩包，可运行 `npm pack dsh-interactive-terminal@0.2.0`。
 
 ## 使用终端
 

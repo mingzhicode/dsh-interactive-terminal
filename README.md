@@ -16,10 +16,10 @@ Install the tested CLI and package manager. Skip this step if these versions are
 npm install -g @deepseek-ai/dsh@0.1.0-rc.8 pnpm@10.18.3
 ```
 
-Once plugin version `0.1.0` is published to npm, install it into the Web profile and start DSH:
+Install version `0.2.0` into the Web profile and start DSH:
 
 ```sh
-dsh plugin --profile web add dsh-interactive-terminal@0.1.0
+dsh plugin --profile web add dsh-interactive-terminal@0.2.0
 dsh --profile web --no-open
 ```
 
@@ -35,14 +35,14 @@ dsh --profile web --no-open
 
 ### Install a downloaded npm tarball
 
-If you have `dsh-interactive-terminal-0.1.0.tgz`, install it without cloning or building the source:
+If you have `dsh-interactive-terminal-0.2.0.tgz`, install it without cloning or building the source:
 
 ```sh
-dsh plugin --profile web add ./dsh-interactive-terminal-0.1.0.tgz
+dsh plugin --profile web add ./dsh-interactive-terminal-0.2.0.tgz
 dsh --profile web --no-open
 ```
 
-The tarball includes the host and browser builds and has no build-on-install or `postinstall` step. Its dependencies may still require registry access. To download a published tarball separately, use `npm pack dsh-interactive-terminal@0.1.0`.
+The tarball includes the host and browser builds and has no build-on-install or `postinstall` step. Its dependencies may still require registry access. To download a published tarball separately, use `npm pack dsh-interactive-terminal@0.2.0`.
 
 ## Use the terminal
 
